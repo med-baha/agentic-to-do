@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react";
-import ChatInput from "@/components/chatInput";
-import TaskList from "@/components/taskList";
+import ChatInput from "@/components/ChatInput";
+import TaskList from "@/components/TaskList";
 
 function Page() {
   const [refreshKey, setRefreshKey] = useState(0);

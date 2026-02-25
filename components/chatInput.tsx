@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
-import ThinkingProcess from "./thinkingProcess";
-import { identifyIntent } from "@/app/actions/agentTools";
+import ThinkingProcess from "./ThinkingProcess";
+import { identifyIntent } from "@/app/actions/agent";
 interface ChatInputProps {
     onTaskUpdate: () => void;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getTask, updateTask } from "@/app/actions/tasks";
+import { getTask, updateTask } from "@/app/actions/taskActions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft } from "lucide-react";

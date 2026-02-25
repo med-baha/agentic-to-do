@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { addTask, deleteTask, updateTask, getTasks } from "@/app/actions/tasks";
-import TaskCard from "./taskCard";
+import { addTask, deleteTask, updateTask, getTasks } from "@/app/actions/taskActions";
+import TaskCard from "./TaskCard";
 import { Card } from "./ui/card";
-import TaskDialog from "./taskDialog";
+import TaskDialog from "./TaskDialog";
 
 type Task = {
   id: string;
@@ -22,19 +22,13 @@ const TaskList = ({ refreshTrigger }: TaskListProps) => {
 
   useEffect(() => {
     const fetchTasks = async () => {
-      const fetchedTasks = await getTasks();
-      setTasks(fetchedTasks as Task[]);
+      const result = await getTasks();
+      setTasks(result.data as Task[] || []);
     };
     fetchTasks();
   }, [refreshTrigger]);
 
   const handleAdd = async (title: string, description: string, content: string) => {
-    // Optimistic update or refetch. Since we don't return the new task from addTask efficiently yet,
-    // we might need to rely on refetching or returning the created task from server action.
-    // For now, let's just trigger a re-fetch or add it to state if we can get the ID back.
-    // Actually actions/tasks.ts addTask returns void.
-    // Let's modify addTask to return the task or just re-fetch all. Re-fetching is safer for now.
-
     await addTask({
       title,
       description,
@@ -42,8 +36,8 @@ const TaskList = ({ refreshTrigger }: TaskListProps) => {
     });
 
     // Re-fetch tasks to get the new one with ID
-    const fetchedTasks = await getTasks();
-    setTasks(fetchedTasks as Task[]);
+    const result = await getTasks();
+    setTasks(result.data as Task[] || []);
   };
 
   const handleDelete = async (id: string) => {

@@ -2,7 +2,7 @@
 
 import { agentConfig, generateUrl } from "@/config/agentConfig";
 import { Memory } from "@/lib/memory";
-import { addTask, deleteTask, updateTask, getTask, getTasks, addTasksMany, deleteTasksMany, updateTasksMany } from "./tasks";
+import { addTask, deleteTask, updateTask, getTask, getTasks, addTasksMany, deleteTasksMany, updateTasksMany } from "./taskActions";
 import UserInfo from "@/db/models/UserInfo";
 import mongoose from "mongoose";
 import jsonSchema from "mongoose-schema-jsonschema";
@@ -112,7 +112,7 @@ const tools = [
         name: "deleteTasksMany",
         description: "Delete multiple tasks in one operation.",
         parameters: {
-            tasks: "Array of objects containing taskId"
+            tasks: "Array of task IDs (strings)"
         },
         useWhen: "Use when the user wants to delete MULTIPLE tasks at once."
     },
@@ -127,19 +127,59 @@ const tools = [
     }
 ];
 
+type ToolHandler = (params: any) => Promise<{ success: boolean; message: string; data?: any }>;
+
+const toolRegistry: Record<string, ToolHandler> = {
+    addTask,
+    deleteTask,
+    updateTask,
+    addTasksMany,
+    deleteTasksMany,
+    updateTasksMany
+};
+
+async function getUserInfo() {
+    try {
+        const userInfo = await UserInfo.findOne();
+        return userInfo;
+    } catch (error) {
+        console.error("getUserInfo error:", error);
+        throw error;
+    }
+}
+
 export async function identifyIntent(userPrompt: string) {
     if (!userPrompt) {
         throw new Error("User prompt is required");
     }
     memory.setPrompt(userPrompt);
     memory.addPreviousUserPrompts(userPrompt);
+    const userInfo = await getUserInfo();
+    const tasksResult = await getTasks();
+    const tasks = tasksResult.data || [];
     const config: agentConfig = {
         model: "gemma3",
         stream: false,
         think: false,
-        system: "this are the availabel tasks: " + JSON.stringify(await getTasks()) + "somtimes the tasks can be empty" +
-            "this are the available tools: " + JSON.stringify(tools) +
-            "return an array of tools that should be executed in order to complete the user request the array can contain one or more tools examin the tools and the user request and return  the Exact tools that should be executed no extra steps"
+        system: `You are an AI task orchestrator.
+
+ according to the user information:
+${JSON.stringify(userInfo)} it may be empty
+
+and the available tasks:
+${JSON.stringify(tasks)} it may be empty
+
+and the available tools:
+${JSON.stringify(tools)}
+
+
+If user information is empty, generate a generic response without personalization other wise use the user information to personalize the response.
+
+If tasks are empty, do not reference or rely on task data.
+
+return an array of tools that should be executed in order to complete the user request the array can contain one or more tools examin the tools and the user request 
+and return the Exact tools that should be executed no extra steps use the batch tools if the user request is about multiple tasks.`
+
     }
     try {
         const response = await fetch(generateUrl, {
@@ -180,50 +220,35 @@ export async function identifyIntent(userPrompt: string) {
 
 // execute tool
 export async function executeTool(pipeline: any[]) {
-    if (!pipeline || !Array.isArray(pipeline)) {
-        throw new Error("undefined or invalid pipeline");
+
+    if (!Array.isArray(pipeline)) {
+        throw new Error("Invalid pipeline");
     }
 
     for (const item of pipeline) {
         const { tool, parameters } = item;
+
         if (!tool || !parameters) {
-            console.error("Skipping invalid pipeline item:", item);
+            console.warn("Skipping invalid pipeline item:", item);
             continue;
         }
 
-        console.log(`Executing tool: ${tool}...`);
+        const handler = toolRegistry[tool]; // get the tool from the registry
 
-        switch (tool) {
-            case "addTask":
-                await addTask(parameters as any);
-                break;
-            case "deleteTask":
-                await deleteTask(parameters as any);
-                break;
-            case "updateTask":
-                await updateTask(parameters as any);
-                break;
-            case "getTask":
-                await getTask(parameters as any);
-                break;
-            case "addTasksMany":
-                await addTasksMany(parameters as any);
-                break;
-            case "deleteTasksMany":
-                await deleteTasksMany(parameters as any);
-                break;
-            case "updateTasksMany":
-                await updateTasksMany(parameters as any);
-                break;
-            default:
-                console.warn(`Unknown tool: ${tool}`);
-                break;
+        if (!handler) {
+            console.warn(`Unknown tool: ${tool}`);
+            continue;
         }
+
+        console.log(`Executing tool: ${tool}`);
+
+        const result = await handler(parameters);// execute the tool
+        console.log(`Tool Result:`, result);
 
         console.log(`Finished executing ${tool}.`);
     }
     console.log("previous user prompts count:", memory.getPreviousUserPromptCount());
-    if (memory.getPreviousUserPromptCount() > 2) {
+    if (memory.getPreviousUserPromptCount() > 10) {
         updateLongTermMemory();
     }
 }

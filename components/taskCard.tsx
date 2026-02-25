@@ -10,7 +10,7 @@ type Task = {
   content?: string;
 };
 
-import TaskDialog from "./taskDialog";
+import TaskDialog from "./TaskDialog";
 
 interface TaskCardProps {
   task: Task;
